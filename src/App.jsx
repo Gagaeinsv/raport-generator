@@ -31,7 +31,7 @@ const INIT = {
   country:         '',
 }
 
-const VIDPUSTKA_IN  = ['vidpustka15_in', 'vidpustka30_in', 'zakordon_in']
+const VIDPUSTKA_IN  = ['vidpustka15_in', 'vidpustka30_in', 'zakordon_in', 'vlk_vidpustka']
 const VIDPUSTKA_OUT = ['vidpustka15_out', 'vidpustka30_out', 'zakordon_out']
 const MED_TYPES     = ['vlk_in', 'vlk_out', 'shpytal_in', 'shpytal_out']
 
@@ -125,6 +125,11 @@ export default function App() {
                   <option value="zakordon_in">У відпустку за кордон</option>
                   <option value="zakordon_out">З відпустки за кордон</option>
                 </optgroup>
+                <optgroup label="Інші рапорти та доповідні">
+                  <option value="vlk_vidpustka">Відпустка для лікування після ВЛК (60 діб)</option>
+                  <option value="vybuv_ppd">Вибув на ППД</option>
+                  <option value="szch">Доповідь про СЗЧ</option>
+                </optgroup>
               </select>
             </div>
             <div className="field-group">
@@ -198,7 +203,7 @@ export default function App() {
                   <input type="text" value={form.address} onChange={set('address')}
                     placeholder="м. Київ, вул. Хрещатик 1" />
                 </div>
-                {(form.docType === 'vidpustka15_in' || form.docType === 'vidpustka30_in') && (
+                {(form.docType === 'vidpustka15_in' || form.docType === 'vidpustka30_in' || form.docType === 'vlk_vidpustka') && (
                   <>
                     <div className="field-group">
                       <label>Рік відпустки</label>
@@ -219,6 +224,13 @@ export default function App() {
                       placeholder="Польща" />
                   </div>
                 )}
+                {form.docType === 'vlk_vidpustka' && (
+                  <div className="field-group span2">
+                    <label>Реквізити довідки ВЛК</label>
+                    <input type="text" value={form.medZaklad} onChange={set('medZaklad')}
+                      placeholder="від 27.03.2026 року №2026-0327-1421-3125-7" />
+                  </div>
+                )}
               </div>
             </>
           )}
@@ -232,6 +244,54 @@ export default function App() {
                 <div className="field-group span2">
                   <label>Дата повернення</label>
                   <input type="date" value={form.dateEnd} onChange={set('dateEnd')} />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Вибуття на ППД */}
+          {form.docType === 'vybuv_ppd' && (
+            <>
+              <hr className="divider" />
+              <h3>Вибуття на ППД</h3>
+              <div className="form-grid">
+                <div className="field-group">
+                  <label>Дата вибуття</label>
+                  <input type="date" value={form.dateStart} onChange={set('dateStart')} />
+                </div>
+                <div className="field-group span2">
+                  <label>Пункт дислокації ППД</label>
+                  <input type="text" value={form.address} onChange={set('address')}
+                    placeholder="м. КРИВИЙ РІГ" />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* СЗЧ */}
+          {form.docType === 'szch' && (
+            <>
+              <hr className="divider" />
+              <h3>Самовільне залишення частини (СЗЧ)</h3>
+              <div className="form-grid">
+                <div className="field-group">
+                  <label>Дата нез'явлення</label>
+                  <input type="date" value={form.dateStart} onChange={set('dateStart')} />
+                </div>
+                <div className="field-group">
+                  <label>Рік відпустки</label>
+                  <input type="text" value={form.year} onChange={set('year')}
+                    placeholder={new Date().getFullYear().toString()} />
+                </div>
+                <div className="field-group span2">
+                  <label>Місце розташування підрозділу</label>
+                  <input type="text" value={form.address} onChange={set('address')}
+                    placeholder="НИЖНЯ СИРОВАТКА Сумського району Сумської області" />
+                </div>
+                <div className="field-group span2">
+                  <label>Марка та номер зброї</label>
+                  <input type="text" value={form.medZaklad} onChange={set('medZaklad')}
+                    placeholder="АК-74 №6757506" />
                 </div>
               </div>
             </>

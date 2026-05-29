@@ -22,6 +22,9 @@ const TEMPLATE_MAP = {
   shpytal_out:     '/template-shpytal-out.docx',
   zakordon_in:     '/template-zakordon-in.docx',
   zakordon_out:    '/template-zakordon-out.docx',
+  vlk_vidpustka:   '/template-vlk-vidpustka.docx',
+  vybuv_ppd:       '/template-vybuv-ppd.docx',
+  szch:            '/template-szch.docx',
 }
 
 const FILE_NAMES = {
@@ -37,6 +40,9 @@ const FILE_NAMES = {
   shpytal_out:     'Рапорт_з_шпиталю',
   zakordon_in:     'Рапорт_у_відпустку_за_кордон',
   zakordon_out:    'Рапорт_з_відпустки_за_кордон',
+  vlk_vidpustka:   'Рапорт_відпустка_лікування_ВЛК',
+  vybuv_ppd:       'Доповідна_вибуття_на_ППД',
+  szch:            'Доповідна_СЗЧ',
 }
 
 function formatDate(dateStr) {
@@ -69,6 +75,8 @@ export async function generateDoc(f, returnBuffer = false) {
     komTyp:        f.komTyp === 'tvo' ? 'ТВО командира' : 'Командир',
     komZvanna:     f.komZvanna,
     komPib:        f.komPib,
+    komZvannaRod:  getZvannaRodovyi(f.komZvanna),
+    komPibRodovyi: getPibRodovyi(f.komPib || ''),
     batKomTyp:     f.batKomTyp === 'tvo' ? 'ТВО командира' : 'Командир',
     batKomZvanna:  f.batKomZvanna,
     batKomPib:     f.batKomPib,
