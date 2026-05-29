@@ -10,21 +10,21 @@ import {
 } from './declension'
 
 const TEMPLATE_MAP = {
-  posada_pryiniav: '/template-posada-pryiniav.docx',
-  posada_zdav:     '/template-posada-zdav.docx',
-  vidpustka15_in:  '/template-vidpustka15-in.docx',
-  vidpustka15_out: '/template-vidpustka15-out.docx',
-  vidpustka30_in:  '/template-vidpustka30-in.docx',
-  vidpustka30_out: '/template-vidpustka30-out.docx',
-  vlk_in:          '/template-vlk-in.docx',
-  vlk_out:         '/template-vlk-out.docx',
-  shpytal_in:      '/template-shpytal-in.docx',
-  shpytal_out:     '/template-shpytal-out.docx',
-  zakordon_in:     '/template-zakordon-in.docx',
-  zakordon_out:    '/template-zakordon-out.docx',
-  vlk_vidpustka:   '/template-vlk-vidpustka.docx',
-  vybuv_ppd:       '/template-vybuv-ppd.docx',
-  szch:            '/template-szch.docx',
+  posada_pryiniav: 'template-posada-pryiniav.docx',
+  posada_zdav:     'template-posada-zdav.docx',
+  vidpustka15_in:  'template-vidpustka15-in.docx',
+  vidpustka15_out: 'template-vidpustka15-out.docx',
+  vidpustka30_in:  'template-vidpustka30-in.docx',
+  vidpustka30_out: 'template-vidpustka30-out.docx',
+  vlk_in:          'template-vlk-in.docx',
+  vlk_out:         'template-vlk-out.docx',
+  shpytal_in:      'template-shpytal-in.docx',
+  shpytal_out:     'template-shpytal-out.docx',
+  zakordon_in:     'template-zakordon-in.docx',
+  zakordon_out:    'template-zakordon-out.docx',
+  vlk_vidpustka:   'template-vlk-vidpustka.docx',
+  vybuv_ppd:       'template-vybuv-ppd.docx',
+  szch:            'template-szch.docx',
 }
 
 const FILE_NAMES = {
@@ -53,7 +53,7 @@ function formatDate(dateStr) {
 }
 
 export async function generateDoc(f, returnBuffer = false) {
-  const templatePath = TEMPLATE_MAP[f.docType] || '/template-posada-pryiniav.docx'
+  const templatePath = TEMPLATE_MAP[f.docType] || 'template-posada-pryiniav.docx'
   const response = await fetch(templatePath)
   const arrayBuffer = await response.arrayBuffer()
 
@@ -75,7 +75,7 @@ export async function generateDoc(f, returnBuffer = false) {
     komTyp:        f.komTyp === 'tvo' ? 'ТВО командира' : 'Командир',
     komZvanna:     f.komZvanna,
     komPib:        f.komPib,
-    komZvannaRod:  getZvannaRodovyi(f.komZvanna),
+    komZvannaRod:  getZvannaRodovyi(f.komZvanna || ''),
     komPibRodovyi: getPibRodovyi(f.komPib || ''),
     batKomTyp:     f.batKomTyp === 'tvo' ? 'ТВО командира' : 'Командир',
     batKomZvanna:  f.batKomZvanna,
@@ -89,6 +89,7 @@ export async function generateDoc(f, returnBuffer = false) {
     year:          f.year || new Date().getFullYear().toString(),
     medZaklad:     f.medZaklad || '',
     country:       f.country || '',
+    weapon:        f.weapon || '',
   })
 
   const output = doc.getZip().generate({ type: 'arraybuffer' })

@@ -29,6 +29,7 @@ const INIT = {
   year:            new Date().getFullYear().toString(),
   medZaklad:       '',
   country:         '',
+  weapon:          '',
 }
 
 const VIDPUSTKA_IN  = ['vidpustka15_in', 'vidpustka30_in', 'zakordon_in', 'vlk_vidpustka']
@@ -290,7 +291,7 @@ export default function App() {
                 </div>
                 <div className="field-group span2">
                   <label>Марка та номер зброї</label>
-                  <input type="text" value={form.medZaklad} onChange={set('medZaklad')}
+                  <input type="text" value={form.weapon} onChange={set('weapon')}
                     placeholder="АК-74 №6757506" />
                 </div>
               </div>
