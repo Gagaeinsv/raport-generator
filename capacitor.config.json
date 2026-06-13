@@ -1,0 +1,5 @@
+{
+  "appId": "com.raport.generator",
+  "appName": "Генератор рапортів",
+  "webDir": "dist"
+}

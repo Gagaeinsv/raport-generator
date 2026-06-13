@@ -1,6 +1,9 @@
 import PizZip from 'pizzip'
 import Docxtemplater from 'docxtemplater'
 import { saveAs } from 'file-saver'
+import { Capacitor } from '@capacitor/core'
+import { Filesystem, Directory } from '@capacitor/filesystem'
+import { Share } from '@capacitor/share'
 import {
   getPibRodovyi,
   getZvannaRodovyi,
@@ -95,9 +98,35 @@ export async function generateDoc(f, returnBuffer = false) {
   const output = doc.getZip().generate({ type: 'arraybuffer' })
   if (returnBuffer) return output
 
-  const fileName = FILE_NAMES[f.docType] || 'Рапорт'
-  const blob = new Blob([output], {
-    type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  })
-  saveAs(blob, `${fileName}.docx`)
+  const fileName = `${FILE_NAMES[f.docType] || 'Рапорт'}.docx`
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const bytes = new Uint8Array(output)
+      let binary = ''
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i])
+      }
+      const base64Data = btoa(binary)
+
+      const writeResult = await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Cache,
+      })
+
+      await Share.share({
+        title: fileName,
+        url: writeResult.uri,
+        dialogTitle: 'Поділитися рапортом',
+      })
+    } catch (err) {
+      alert('Помилка при збереженні або надсиланні файлу: ' + err.message)
+    }
+  } else {
+    const blob = new Blob([output], {
+      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    })
+    saveAs(blob, fileName)
+  }
 }
