@@ -4,6 +4,7 @@ import { saveAs } from 'file-saver'
 import { Capacitor } from '@capacitor/core'
 import { Filesystem, Directory } from '@capacitor/filesystem'
 import { Share } from '@capacitor/share'
+import { jsPDF } from 'jspdf'
 import {
   getPibRodovyi,
   getZvannaRodovyi,
@@ -55,6 +56,25 @@ function formatDate(dateStr) {
   return `${d}.${m}.${y}`
 }
 
+function getImageDimensions(base64Str) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.src = base64Str
+    img.onload = () => {
+      resolve({ width: img.width, height: img.height })
+    }
+    img.onerror = () => {
+      resolve({ width: 210, height: 297 })
+    }
+  })
+}
+
+function getImageFormat(base64Str) {
+  if (base64Str.startsWith('data:image/png')) return 'PNG'
+  if (base64Str.startsWith('data:image/webp')) return 'WEBP'
+  return 'JPEG'
+}
+
 export async function generateDoc(f, returnBuffer = false) {
   const templatePath = TEMPLATE_MAP[f.docType] || 'template-posada-pryiniav.docx'
   const response = await fetch(templatePath)
@@ -99,6 +119,7 @@ export async function generateDoc(f, returnBuffer = false) {
   if (returnBuffer) return output
 
   const fileName = `${FILE_NAMES[f.docType] || 'Рапорт'}.docx`
+  const pdfFileName = `${FILE_NAMES[f.docType] || 'Рапорт'}_додаток.pdf`
 
   if (Capacitor.isNativePlatform()) {
     try {
@@ -109,24 +130,102 @@ export async function generateDoc(f, returnBuffer = false) {
       }
       const base64Data = btoa(binary)
 
-      const writeResult = await Filesystem.writeFile({
+      const docxWriteResult = await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
         directory: Directory.Cache,
       })
 
+      const filesToShare = [docxWriteResult.uri]
+
+      if (f.attachment) {
+        const format = getImageFormat(f.attachment)
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4',
+        })
+        const dims = await getImageDimensions(f.attachment)
+        const a4w = 210
+        const a4h = 297
+        const imgRatio = dims.width / dims.height
+        const a4Ratio = a4w / a4h
+
+        let w = a4w
+        let h = a4h
+        let x = 0
+        let y = 0
+
+        if (imgRatio > a4Ratio) {
+          w = a4w
+          h = a4w / imgRatio
+          y = (a4h - h) / 2
+        } else {
+          h = a4h
+          w = a4h * imgRatio
+          x = (a4w - w) / 2
+        }
+
+        pdf.addImage(f.attachment, format, x, y, w, h)
+        const pdfBase64 = pdf.output('datauristring').split(',')[1]
+
+        const pdfWriteResult = await Filesystem.writeFile({
+          path: pdfFileName,
+          data: pdfBase64,
+          directory: Directory.Cache,
+        })
+        filesToShare.push(pdfWriteResult.uri)
+      }
+
       await Share.share({
-        title: fileName,
-        url: writeResult.uri,
-        dialogTitle: 'Поділитися рапортом',
+        title: f.attachment ? 'Рапорт та додаток' : fileName,
+        files: filesToShare,
+        dialogTitle: f.attachment ? 'Поділитися рапортом та додатком' : 'Поділитися рапортом',
       })
     } catch (err) {
-      alert('Помилка при збереженні або надсиланні файлу: ' + err.message)
+      alert('Помилка при збереженні або надсиланні файлів: ' + err.message)
     }
   } else {
     const blob = new Blob([output], {
       type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     })
     saveAs(blob, fileName)
+
+    if (f.attachment) {
+      try {
+        const format = getImageFormat(f.attachment)
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'mm',
+          format: 'a4',
+        })
+        const dims = await getImageDimensions(f.attachment)
+        const a4w = 210
+        const a4h = 297
+        const imgRatio = dims.width / dims.height
+        const a4Ratio = a4w / a4h
+
+        let w = a4w
+        let h = a4h
+        let x = 0
+        let y = 0
+
+        if (imgRatio > a4Ratio) {
+          w = a4w
+          h = a4w / imgRatio
+          y = (a4h - h) / 2
+        } else {
+          h = a4h
+          w = a4h * imgRatio
+          x = (a4w - w) / 2
+        }
+
+        pdf.addImage(f.attachment, format, x, y, w, h)
+        const pdfBlob = pdf.output('blob')
+        saveAs(pdfBlob, pdfFileName)
+      } catch (err) {
+        console.error('Помилка генерації PDF: ', err)
+      }
+    }
   }
 }
