@@ -317,11 +317,17 @@ export default function App() {
               <h3>📎 Додаток до рапорту</h3>
               <div className="form-grid">
                 <div className="field-group span2">
-                  <label>Фото виписки / довідки (для PDF)</label>
-                  <input type="file" accept="image/*" onChange={handleAttachment} id="attachment-input" style={{ display: 'none' }} />
-                  <label htmlFor="attachment-input" className="btn-attachment-label">
-                    📷 {form.attachment ? 'Змінити фото' : 'Прикріпити фото'}
-                  </label>
+                  <label>Додати виписку / довідку (для PDF)</label>
+                  <div className="attachment-actions">
+                    <input type="file" accept="image/*" capture="environment" onChange={handleAttachment} id="attachment-camera" style={{ display: 'none' }} />
+                    <label htmlFor="attachment-camera" className="btn-attachment-label">
+                      📷 Камера
+                    </label>
+                    <input type="file" accept="image/*" onChange={handleAttachment} id="attachment-gallery" style={{ display: 'none' }} />
+                    <label htmlFor="attachment-gallery" className="btn-attachment-label btn-gallery-label">
+                      📂 Галерея
+                    </label>
+                  </div>
                 </div>
                 {form.attachment && (
                   <div className="field-group span2 attachment-preview-container">
@@ -603,10 +609,17 @@ export default function App() {
               <div className="scanner-section">
                 <h4>2. Розпізнати військовий квиток / Посвідчення (OCR)</h4>
                 <div className="ocr-upload-box">
-                  <input type="file" accept="image/*" onChange={handleOCR} id="ocr-input" style={{ display: 'none' }} disabled={ocrLoading} />
-                  <label htmlFor="ocr-input" className={`btn-ocr-label ${ocrLoading ? 'disabled' : ''}`}>
-                    {ocrLoading ? '⏳ Сканування документа...' : '📷 Зробити фото або вибрати файл'}
-                  </label>
+                  <input type="file" accept="image/*" capture="environment" onChange={handleOCR} id="ocr-camera" style={{ display: 'none' }} disabled={ocrLoading} />
+                  <input type="file" accept="image/*" onChange={handleOCR} id="ocr-gallery" style={{ display: 'none' }} disabled={ocrLoading} />
+                  
+                  <div className="ocr-actions">
+                    <label htmlFor="ocr-camera" className={`btn-ocr-label ${ocrLoading ? 'disabled' : ''}`}>
+                      📷 Камера
+                    </label>
+                    <label htmlFor="ocr-gallery" className={`btn-ocr-label btn-ocr-gallery-label ${ocrLoading ? 'disabled' : ''}`}>
+                      📂 Галерея
+                    </label>
+                  </div>
                   {ocrLoading && (
                     <div className="ocr-progress-container">
                       <div className="ocr-progress-bar" style={{ width: `${ocrProgress}%` }}></div>
