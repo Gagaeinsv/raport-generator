@@ -318,7 +318,7 @@ export default function App() {
               <div className="form-grid">
                 <div className="field-group span2">
                   <label>Фото виписки / довідки (для PDF)</label>
-                  <input type="file" accept="image/*" capture="environment" onChange={handleAttachment} id="attachment-input" style={{ display: 'none' }} />
+                  <input type="file" accept="image/*" onChange={handleAttachment} id="attachment-input" style={{ display: 'none' }} />
                   <label htmlFor="attachment-input" className="btn-attachment-label">
                     📷 {form.attachment ? 'Змінити фото' : 'Прикріпити фото'}
                   </label>
@@ -603,7 +603,7 @@ export default function App() {
               <div className="scanner-section">
                 <h4>2. Розпізнати військовий квиток / Посвідчення (OCR)</h4>
                 <div className="ocr-upload-box">
-                  <input type="file" accept="image/*" capture="environment" onChange={handleOCR} id="ocr-input" style={{ display: 'none' }} disabled={ocrLoading} />
+                  <input type="file" accept="image/*" onChange={handleOCR} id="ocr-input" style={{ display: 'none' }} disabled={ocrLoading} />
                   <label htmlFor="ocr-input" className={`btn-ocr-label ${ocrLoading ? 'disabled' : ''}`}>
                     {ocrLoading ? '⏳ Сканування документа...' : '📷 Зробити фото або вибрати файл'}
                   </label>
