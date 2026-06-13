@@ -36,7 +36,6 @@ const INIT = {
   country:         '',
   weapon:          '',
   attachment:      null,
-  reportDate:      new Date().toISOString().split('T')[0],
 }
 
 const VIDPUSTKA_IN  = ['vidpustka15_in', 'vidpustka30_in', 'zakordon_in', 'vlk_vidpustka']
@@ -302,7 +301,7 @@ export default function App() {
                     </optgroup>
                   </select>
                 </div>
-                <div className="field-group span2">
+                <div className="field-group">
                   <label>Кому адресовано</label>
                   <select value={form.rotaKomandyru} onChange={set('rotaKomandyru')}>
                     {ROTY_ADRESAT.map(r => (
@@ -310,14 +309,10 @@ export default function App() {
                     ))}
                   </select>
                 </div>
-                <div className="field-group span2">
+                <div className="field-group">
                   <label>Номер частини</label>
                   <input type="text" value={form.unitCode} onChange={set('unitCode')}
                     placeholder="А7224" />
-                </div>
-                <div className="field-group span2">
-                  <label>Дата рапорту</label>
-                  <input type="date" value={form.reportDate} onChange={set('reportDate')} />
                 </div>
               </div>
 
