@@ -90,6 +90,9 @@ export default function App() {
       const arrayBuffer = await generateDoc(form, true)
       const result = await mammoth.convertToHtml({ arrayBuffer })
       setPreviewHtml(result.value)
+      if (window.innerWidth <= 768) {
+        setActiveTab('preview')
+      }
     } catch (e) {
       alert('Помилка: ' + e.message)
     }
@@ -248,6 +251,9 @@ export default function App() {
           </button>
           <button className={`tab-btn ${activeTab === 'myqr' ? 'active' : ''}`} onClick={() => { setActiveTab('myqr'); stopScanning(); }}>
             🔑 Мій QR
+          </button>
+          <button className={`tab-btn tab-btn-preview-only ${activeTab === 'preview' ? 'active' : ''}`} onClick={() => { setActiveTab('preview'); stopScanning(); }}>
+            👁 Перегляд
           </button>
         </div>
 
@@ -633,6 +639,23 @@ export default function App() {
               <div><strong>Частина:</strong> {form.unitCode}</div>
               <div><strong>Підрозділ:</strong> {PIDROZDILY.find(p => p.value === form.pidrozdil)?.label || form.pidrozdil}</div>
             </div>
+          </div>
+        )}
+
+        {/* ===== ПОПЕРЕДНІЙ ПЕРЕГЛЯД (Мобільний) ===== */}
+        {activeTab === 'preview' && (
+          <div className="form-scroll mobile-preview-tab">
+            <h3>👁 Попередній перегляд рапорту</h3>
+            {previewHtml ? (
+              <div className="doc-preview" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+            ) : (
+              <div className="doc-placeholder-mobile">
+                <p>Немає згенерованого прев'ю.</p>
+                <button className="btn-preview" onClick={handlePreview} disabled={loading}>
+                  {loading ? '⏳ Генерується...' : '👁 Згенерувати прев\'ю'}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
