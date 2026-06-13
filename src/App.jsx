@@ -631,14 +631,43 @@ export default function App() {
               <QRCodeSVG value={getQRString()} size={200} level="M" includeMargin={true} />
             </div>
 
-            <div className="qr-details-box">
-              <div><strong>ПІБ:</strong> {form.pib || 'Не вказано'}</div>
-              <div><strong>Звання:</strong> {form.zvanniaRyadovyi}</div>
-              <div><strong>Посада:</strong> {form.posada}</div>
-              <div><strong>ВОС:</strong> {form.vos || 'Не вказано'}</div>
-              <div><strong>Частина:</strong> {form.unitCode}</div>
-              <div><strong>Підрозділ:</strong> {PIDROZDILY.find(p => p.value === form.pidrozdil)?.label || form.pidrozdil}</div>
+            <div className="qr-details-box edit-mode">
+              <div className="field-group">
+                <label>ПІБ бійця</label>
+                <input type="text" value={form.pib} onChange={set('pib')} placeholder="КОСТЕНКО Станіслав Віталійович" />
+              </div>
+              <div className="field-group">
+                <label>Звання</label>
+                <select value={form.zvanniaRyadovyi} onChange={set('zvanniaRyadovyi')}>
+                  {ZVANNA.map(z => <option key={z}>{z}</option>)}
+                </select>
+              </div>
+              <div className="field-group">
+                <label>Посада</label>
+                <select value={form.posada} onChange={handlePosada}>
+                  {POSADY.map(p => <option key={p}>{p}</option>)}
+                </select>
+              </div>
+              <div className="field-group">
+                <label>ВОС</label>
+                <input type="text" value={form.vos} onChange={set('vos')} placeholder="Код ВОС" />
+              </div>
+              <div className="field-group">
+                <label>Номер частини</label>
+                <input type="text" value={form.unitCode} onChange={set('unitCode')} placeholder="А7224" />
+              </div>
+              <div className="field-group">
+                <label>Підрозділ</label>
+                <select value={form.pidrozdil} onChange={set('pidrozdil')}>
+                  {PIDROZDILY.map(p => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
+            <button className="btn-save" onClick={handleSave} style={{ marginTop: '10px', width: '100%' }}>
+              💾 Зберегти зміни профілю
+            </button>
           </div>
         )}
 

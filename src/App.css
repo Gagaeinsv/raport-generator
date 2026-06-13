@@ -472,9 +472,25 @@ input:focus, select:focus {
   padding-bottom: 4px;
 }
 
-.qr-details-box div:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+.qr-details-box.edit-mode {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: #f9fafb;
+  border: 1px solid #f3f4f6;
+  border-radius: 8px;
+  padding: 12px;
+  width: 100%;
+}
+
+.qr-details-box.edit-mode .field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.qr-details-box.edit-mode .field-group:first-child {
+  grid-column: 1 / -1; /* Make PIB input take full width */
 }
 
 /* Responsive design adjustments */
