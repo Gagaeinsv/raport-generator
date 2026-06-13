@@ -61,8 +61,8 @@ export async function generateDoc(f, returnBuffer = false) {
   const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true })
 
   doc.render({
-    zvanna:        f.zvanniaRyadovyi,
-    zvannaRod:     getZvannaRodovyi(f.zvanniaRyadovyi),
+    zvanna:        (f.zvanniaRyadovyi || '').toLowerCase(),
+    zvannaRod:     getZvannaRodovyi(f.zvanniaRyadovyi || ''),
     pib:           f.pib || '',
     pibShort:      getPibShort(f.pib || ''),
     pibRodovyi:    getPibRodovyi(f.pib || ''),
@@ -73,12 +73,12 @@ export async function generateDoc(f, returnBuffer = false) {
     rotaKom:       f.rotaKomandyru,
     vos:           f.vos,
     komTyp:        f.komTyp === 'tvo' ? 'ТВО командира' : 'Командир',
-    komZvanna:     f.komZvanna,
+    komZvanna:     (f.komZvanna || '').toLowerCase(),
     komPib:        f.komPib,
     komZvannaRod:  getZvannaRodovyi(f.komZvanna || ''),
     komPibRodovyi: getPibRodovyi(f.komPib || ''),
     batKomTyp:     f.batKomTyp === 'tvo' ? 'ТВО командира' : 'Командир',
-    batKomZvanna:  f.batKomZvanna,
+    batKomZvanna:  (f.batKomZvanna || '').toLowerCase(),
     batKomPib:     f.batKomPib,
     unitCode:      f.unitCode || 'А7224',
     dateStart:     formatDate(f.dateStart),

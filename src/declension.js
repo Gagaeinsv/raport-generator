@@ -77,12 +77,12 @@ function declineWord(word) {
 
 export function getPibRodovyi(pib) {
   if (!pib) return ''
-  return pib.trim().split(' ').map(declineWord).join(' ')
+  return pib.trim().split(/\s+/).map(declineWord).join(' ')
 }
 
 export function getPibShort(pib) {
   if (!pib) return ''
-  const parts = pib.trim().split(' ')
+  const parts = pib.trim().split(/\s+/)
   const [prizvysche, imya] = parts
   if (!imya) return pib
   return `${imya} ${prizvysche}`
