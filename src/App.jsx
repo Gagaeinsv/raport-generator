@@ -6,6 +6,7 @@ import { QRCodeSVG } from 'qrcode.react'
 import { Html5Qrcode } from 'html5-qrcode'
 import Tesseract from 'tesseract.js'
 import { parseOCRText } from './ocrParser'
+import { Capacitor } from '@capacitor/core'
 import './App.css'
 
 const STORAGE_KEY = 'raport_form_v3'
@@ -242,20 +243,22 @@ export default function App() {
       <div className="col-soldier">
         <h2>📋 Генератор документів</h2>
 
-        <div className="tabs-header">
-          <button className={`tab-btn ${activeTab === 'form' ? 'active' : ''}`} onClick={() => { setActiveTab('form'); stopScanning(); }}>
-            📄 Рапорт
-          </button>
-          <button className={`tab-btn ${activeTab === 'scan' ? 'active' : ''}`} onClick={() => { setActiveTab('scan'); stopScanning(); }}>
-            📷 Сканувати
-          </button>
-          <button className={`tab-btn ${activeTab === 'myqr' ? 'active' : ''}`} onClick={() => { setActiveTab('myqr'); stopScanning(); }}>
-            🔑 Мій QR
-          </button>
-          <button className={`tab-btn tab-btn-preview-only ${activeTab === 'preview' ? 'active' : ''}`} onClick={() => { setActiveTab('preview'); stopScanning(); }}>
-            👁 Перегляд
-          </button>
-        </div>
+        {Capacitor.isNativePlatform() && (
+          <div className="tabs-header">
+            <button className={`tab-btn ${activeTab === 'form' ? 'active' : ''}`} onClick={() => { setActiveTab('form'); stopScanning(); }}>
+              📄 Рапорт
+            </button>
+            <button className={`tab-btn ${activeTab === 'scan' ? 'active' : ''}`} onClick={() => { setActiveTab('scan'); stopScanning(); }}>
+              📷 Сканувати
+            </button>
+            <button className={`tab-btn ${activeTab === 'myqr' ? 'active' : ''}`} onClick={() => { setActiveTab('myqr'); stopScanning(); }}>
+              🔑 Мій QR
+            </button>
+            <button className={`tab-btn tab-btn-preview-only ${activeTab === 'preview' ? 'active' : ''}`} onClick={() => { setActiveTab('preview'); stopScanning(); }}>
+              👁 Перегляд
+            </button>
+          </div>
+        )}
 
         {/* ===== СКРОЛАБЕЛЬНА ФОРМА ===== */}
         {activeTab === 'form' && (
@@ -570,7 +573,7 @@ export default function App() {
                   {loading ? '⏳' : '👁 Переглянути'}
                 </button>
                 <button className="btn-generate" onClick={handleDownload}>
-                  📄 Завантажити
+                  {Capacitor.isNativePlatform() ? '📤 Надіслати / Зберегти' : '📄 Завантажити'}
                 </button>
               </div>
             </div>
