@@ -81,6 +81,14 @@ export async function generateDoc(f, returnBuffer = false) {
   const arrayBuffer = await response.arrayBuffer()
 
   const zip = new PizZip(arrayBuffer)
+
+  if (f.reportDate) {
+    const docXml = zip.file('word/document.xml').asText()
+    const formattedReportDate = formatDate(f.reportDate)
+    const updatedXml = docXml.replace('___.___.______', formattedReportDate)
+    zip.file('word/document.xml', updatedXml)
+  }
+
   const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true })
 
   doc.render({
