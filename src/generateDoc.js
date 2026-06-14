@@ -117,6 +117,26 @@ export async function generateDoc(f, returnBuffer = false) {
   // Adjust spacing and styling inside word/document.xml dynamically based on renderData
   let docXml = zip.file('word/document.xml').asText()
 
+  // 0. Fix alignment of header paragraphs that used leading spaces to simulate alignment:
+  //    - Paragraphs starting with spaces + "Командиру" or "військової" → right-align, strip spaces
+  //    - Paragraphs starting with spaces + "Рапорт" or "Доповідна" (title) → center-align, strip spaces
+  docXml = docXml.replace(
+    /(<w:p>)(<w:r><w:rPr>[\s\S]*?<\/w:rPr><w:t xml:space="preserve">)(\s{5,})((?:Командиру|Клопочу|РАПОРТ|Рапорт|Доповідна)[^\s]|(?:Командиру|Клопочу|РАПОРТ|Рапорт|Доповідна)\s)/g,
+    (match, pOpen, runStart, spaces, textStart) => {
+      const align = textStart.toLowerCase().startsWith('рапорт') || textStart.toLowerCase().startsWith('доповідна')
+        ? 'center'
+        : 'right'
+      return `${pOpen}<w:pPr><w:jc w:val="${align}"/></w:pPr>${runStart}${textStart}`
+    }
+  )
+  // Also handle "військової частини" lines that follow a right-aligned "Командиру" block
+  docXml = docXml.replace(
+    /(<w:p>)(<w:r><w:rPr>[\s\S]*?<\/w:rPr><w:t xml:space="preserve">)(\s{5,})(військової частини)/g,
+    (match, pOpen, runStart, spaces, textStart) => {
+      return `${pOpen}<w:pPr><w:jc w:val="right"/></w:pPr>${runStart}${textStart}`
+    }
+  )
+
   // 1. Strip leading spaces/tabs from the body text paragraph to prevent double indenting
   docXml = docXml.replace(/(<w:t[^>]*>)\s+([Дд]ійсним доповідаю|[Пп]рошу)/g, '$1$2')
   docXml = docXml.replace(/(<w:t[^>]*>)\t+([Дд]ійсним доповідаю|[Пп]рошу)/g, '$1$2')
