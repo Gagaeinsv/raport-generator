@@ -114,8 +114,37 @@ export async function generateDoc(f, returnBuffer = false) {
     weapon:        f.weapon || '',
   }
 
-  // Adjust spacing inside word/document.xml dynamically based on renderData
+  // Adjust spacing and styling inside word/document.xml dynamically based on renderData
   let docXml = zip.file('word/document.xml').asText()
+
+  // 1. Strip leading spaces/tabs from the body text paragraph to prevent double indenting
+  docXml = docXml.replace(/(<w:t[^>]*>)\s+([Дд]ійсним доповідаю|[Пп]рошу)/g, '$1$2')
+  docXml = docXml.replace(/(<w:t[^>]*>)\t+([Дд]ійсним доповідаю|[Пп]рошу)/g, '$1$2')
+
+  // 2. Inject standard first-line paragraph indent (12.5mm = 709 dxa) for the body paragraph
+  const pRegex = /<w:p>(?:<w:pPr>((?:(?!<\/w:p>)[\s\S])*?)<\/w:pPr>)?((?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>(?:[Дд]ійсним доповідаю|[Пп]рошу))/g
+  docXml = docXml.replace(pRegex, (match, pPrInner, rest) => {
+    if (pPrInner) {
+      if (pPrInner.includes('<w:ind')) {
+        pPrInner = pPrInner.replace(/<w:ind[^>]*>/, '<w:ind w:firstLine="709"/>')
+      } else {
+        pPrInner += '<w:ind w:firstLine="709"/>'
+      }
+      return `<w:p><w:pPr>${pPrInner}</w:pPr>${rest}`
+    } else {
+      return `<w:p><w:pPr><w:ind w:firstLine="709"/></w:pPr>${rest}`
+    }
+  })
+
+  // 3. Inject official margins (Left: 35mm, Right: 20mm, Top: 20mm, Bottom: 20mm)
+  const sectPr = `<w:sectPr>
+    <w:pgSz w:w="11906" w:h="16838"/>
+    <w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1984" w:header="720" w:footer="720" w:gutter="0"/>
+    <w:cols w:space="720"/>
+  </w:sectPr>`
+  docXml = docXml.replace('</w:body>', `${sectPr}</w:body>`)
+
+  // 4. Adjust signature line spacings dynamically
   const spacingRegex = /(\{([a-zA-Z0-9_]+)\})(\s{10,})(\{([a-zA-Z0-9_]+)\})/g
   docXml = docXml.replace(spacingRegex, (match, tag1Str, tag1, spaces, tag2Str, tag2) => {
     const val1 = (renderData[tag1] || '').toString()
@@ -130,6 +159,7 @@ export async function generateDoc(f, returnBuffer = false) {
     const newSpaces = ' '.repeat(newSpaceCount)
     return `${tag1Str}${newSpaces}${tag2Str}`
   })
+
   zip.file('word/document.xml', docXml)
 
   const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true })
