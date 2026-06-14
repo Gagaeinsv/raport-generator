@@ -81,13 +81,12 @@ export async function generateDoc(f, returnBuffer = false) {
   const arrayBuffer = await response.arrayBuffer()
 
   const zip = new PizZip(arrayBuffer)
-  const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true })
 
-  doc.render({
+  const renderData = {
     zvanna:        (f.zvanniaRyadovyi || '').toLowerCase(),
     zvannaRod:     getZvannaRodovyi(f.zvanniaRyadovyi || ''),
     pib:           f.pib || '',
-    pibShort:      getPibShort(f.pib || ''),
+    pibShort:      getPibShort(f.pib || '').replace(/ /g, '\u00A0'),
     pibRodovyi:    getPibRodovyi(f.pib || ''),
     posada:        f.posada,
     posadaRod:     getPosadaRodovyi(f.posada),
@@ -97,12 +96,12 @@ export async function generateDoc(f, returnBuffer = false) {
     vos:           f.vos,
     komTyp:        f.komTyp === 'tvo' ? 'ТВО командира' : 'Командир',
     komZvanna:     (f.komZvanna || '').toLowerCase(),
-    komPib:        f.komPib,
+    komPib:        (f.komPib || '').replace(/ /g, '\u00A0'),
     komZvannaRod:  getZvannaRodovyi(f.komZvanna || ''),
     komPibRodovyi: getPibRodovyi(f.komPib || ''),
     batKomTyp:     f.batKomTyp === 'tvo' ? 'ТВО командира' : 'Командир',
     batKomZvanna:  (f.batKomZvanna || '').toLowerCase(),
-    batKomPib:     f.batKomPib,
+    batKomPib:     (f.batKomPib || '').replace(/ /g, '\u00A0'),
     unitCode:      f.unitCode || 'А7224',
     dateStart:     formatDate(f.dateStart),
     dateEnd:       formatDate(f.dateEnd),
@@ -113,7 +112,28 @@ export async function generateDoc(f, returnBuffer = false) {
     medZaklad:     f.medZaklad || '',
     country:       f.country || '',
     weapon:        f.weapon || '',
+  }
+
+  // Adjust spacing inside word/document.xml dynamically based on renderData
+  let docXml = zip.file('word/document.xml').asText()
+  const spacingRegex = /(\{([a-zA-Z0-9_]+)\})(\s{10,})(\{([a-zA-Z0-9_]+)\})/g
+  docXml = docXml.replace(spacingRegex, (match, tag1Str, tag1, spaces, tag2Str, tag2) => {
+    const val1 = (renderData[tag1] || '').toString()
+    const val2 = (renderData[tag2] || '').toString()
+    
+    // Target visual width of 135 space units
+    const targetWidth = 135
+    const val1Width = val1.length * 2
+    const val2Width = val2.length * 2
+    
+    const newSpaceCount = Math.max(15, targetWidth - val1Width - val2Width)
+    const newSpaces = ' '.repeat(newSpaceCount)
+    return `${tag1Str}${newSpaces}${tag2Str}`
   })
+  zip.file('word/document.xml', docXml)
+
+  const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true })
+  doc.render(renderData)
 
   const output = doc.getZip().generate({ type: 'arraybuffer' })
   if (returnBuffer) return output
