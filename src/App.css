@@ -141,7 +141,7 @@ input:focus, select:focus {
 
 .btn-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 0.8fr 1.2fr;
   gap: 6px;
 }
 
@@ -159,14 +159,15 @@ input:focus, select:focus {
 .btn-preview:disabled { background: #a5b4fc; cursor: not-allowed; }
 
 .btn-generate {
-  padding: 7px;
+  padding: 12px 7px;
   background: #059669;
   color: white;
   border: none;
   border-radius: 5px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: bold;
   cursor: pointer;
+  box-shadow: 0 2px 4px rgba(5, 150, 105, 0.2);
 }
 .btn-generate:hover { background: #047857; }
 
@@ -178,6 +179,7 @@ input:focus, select:focus {
   font-size: 13px;
   line-height: 1.8;
   flex: 1;
+  text-align: left;
 }
 
 .doc-placeholder {

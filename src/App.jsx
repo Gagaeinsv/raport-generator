@@ -249,7 +249,7 @@ export default function App() {
               📄 Рапорт
             </button>
             <button className={`tab-btn ${activeTab === 'scan' ? 'active' : ''}`} onClick={() => { setActiveTab('scan'); stopScanning(); }}>
-              📷 Сканувати
+              📷 Камера та Галерея
             </button>
             <button className={`tab-btn ${activeTab === 'myqr' ? 'active' : ''}`} onClick={() => { setActiveTab('myqr'); stopScanning(); }}>
               🔑 Мій QR
@@ -584,7 +584,7 @@ export default function App() {
         {activeTab === 'scan' && (
           <div className="form-scroll">
             <div className="scanner-container">
-              <h3>📷 Сканування та розпізнавання</h3>
+              <h3>📷 Камера та Галерея</h3>
               <p className="scanner-desc">
                 Ви можете відсканувати QR-код іншого бійця для швидкого заповнення або розпізнати текст військового квитка чи посвідчення за допомогою фото.
               </p>
