@@ -93,9 +93,11 @@ function fixSingleParagraph(para) {
   let align = null
   let addIndent = false
 
-  if (/^(Дійсним\s+доповідаю|Дійсним\s+рапортую|Прошу|Клопочу)/ui.test(trimmed)) {
-    align = 'both'  // justified
+  if (/^(Дійсним\s+доповідаю|Дійсним\s+рапортую|Прошу)/ui.test(trimmed)) {
+    align = 'both'  // justified body text with first-line indent
     addIndent = true
+  } else if (/^Клопочу/ui.test(trimmed)) {
+    align = 'center' // resolution paragraph — always centered, no indent
   } else {
     // Check leading whitespace in the first text chunk
     const firstText = allTextMatches[0][1]
@@ -297,7 +299,7 @@ function fixParaXml(xml) {
 
     let toInsert = ''
     if (!hasSpacing) toInsert += '<w:spacing w:after="0" w:before="0"/>'
-    if (!hasJc)      toInsert += '<w:jc w:val="both"/>'
+    // NOTE: do NOT add default justify here — position/date lines should stay LEFT.
 
     if (toInsert) {
       if (hasPPr) {
