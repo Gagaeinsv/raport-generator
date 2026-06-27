@@ -194,7 +194,7 @@ function applyDocumentSpacing(xml) {
 
   // Extract all text runs from a paragraph XML string
   function getText(paraXml) {
-    return [...paraXml.matchAll(/<w:t[^>]*>([\/\s\S]*?)<\/w:t>/g)].map(m => m[1]).join('').trim()
+    return [...paraXml.matchAll(/<w:t[^>]*>([\'\s\S]*?)<\/w:t>/g)].map(m => m[1]).join('').trim()
   }
 
   // Parse XML into interleaved gap/paragraph segments
@@ -258,6 +258,118 @@ function applyDocumentSpacing(xml) {
   }
 
   return parts.join('')
+}
+
+// ---------------------------------------------------------------------------
+// FIX ALL PARAGRAPHS: spacing after=0 AND default justify
+// Runs on every <w:p>...</w:p> paragraph to:
+//   - Zero out Word's default "space after paragraph" (w:after / w:before)
+//   - Add <w:jc w:val="both"/> (justify) to paragraphs without explicit align
+// ---------------------------------------------------------------------------
+function fixParaXml(xml) {
+  // Step 1: update any existing <w:spacing .../> — zero out after/before
+  xml = xml.replace(/<w:spacing([^>]*?)\/>/ , (m, attrs) => {
+    attrs = attrs.replace(/\s*w:after="[^"]*"/g, '').replace(/\s*w:before="[^"]*"/g, '')
+    return `<w:spacing w:after="0" w:before="0"${attrs}/>`
+  })
+  // (global replace for all occurrences)
+  xml = xml.replace(/<w:spacing([^>]*?)\/>/g, (m, attrs) => {
+    attrs = attrs.replace(/\s*w:after="[^"]*"/g, '').replace(/\s*w:before="[^"]*"/g, '')
+    return `<w:spacing w:after="0" w:before="0"${attrs}/>`
+  })
+
+  // Step 2: paragraph walk — inject spacing + default justify where missing
+  const CLOSE = '</w:p>'
+  const OPEN  = '<w:p>'
+  let result = ''
+  let pos = 0
+  while (pos < xml.length) {
+    const pStart = xml.indexOf(OPEN, pos)
+    if (pStart === -1) { result += xml.substring(pos); break }
+    result += xml.substring(pos, pStart)
+    const pEnd = xml.indexOf(CLOSE, pStart)
+    if (pEnd === -1) { result += xml.substring(pStart); break }
+    let para = xml.substring(pStart, pEnd + CLOSE.length)
+
+    const hasPPr    = para.includes('<w:pPr>')
+    const hasSpacing = para.includes('<w:spacing')
+    const hasJc     = para.includes('<w:jc ')
+
+    let toInsert = ''
+    if (!hasSpacing) toInsert += '<w:spacing w:after="0" w:before="0"/>'
+    if (!hasJc)      toInsert += '<w:jc w:val="both"/>'
+
+    if (toInsert) {
+      if (hasPPr) {
+        para = para.replace('<w:pPr>', `<w:pPr>${toInsert}`)
+      } else {
+        para = para.replace(OPEN, `${OPEN}<w:pPr>${toInsert}</w:pPr>`)
+      }
+    }
+
+    result += para
+    pos = pEnd + CLOSE.length
+  }
+  return result
+}
+
+// ---------------------------------------------------------------------------
+// FIX SIGNATURE LINES
+// Converts "rank[spaces]name" paragraphs into proper Word tab-stop layout:
+//   left run: rank  |  <w:tab/>  |  right-aligned run: name
+// This makes the name always sit at the RIGHT margin regardless of rank length.
+// Tab stop position = content area width (A4 - 35mm left - 10mm right = 165mm).
+// ---------------------------------------------------------------------------
+function fixSignatureLines(xml) {
+  const CLOSE   = '</w:p>'
+  const OPEN    = '<w:p>'
+  const TAB_POS = 9350  // twips: 165mm * (1440/25.4) ≈ 9353, rounded to 9350
+
+  let result = ''
+  let pos = 0
+  while (pos < xml.length) {
+    const pStart = xml.indexOf(OPEN, pos)
+    if (pStart === -1) { result += xml.substring(pos); break }
+    result += xml.substring(pos, pStart)
+    const pEnd = xml.indexOf(CLOSE, pStart)
+    if (pEnd === -1) { result += xml.substring(pStart); break }
+    let para = xml.substring(pStart, pEnd + CLOSE.length)
+
+    // Collect full text from all <w:t> elements
+    const allT = [...para.matchAll(/<w:t[^>]*>([\'\s\S]*?)<\/w:t>/g)]
+    const fullText = allT.map(m => m[1]).join('')
+
+    // Detect signature line: non-space + 5+ regular spaces + non-space
+    const sigMatch = fullText.match(/^(\S[\s\S]*?) {5,}(\S[\s\S]*)$/)
+    if (sigMatch) {
+      const leftText  = sigMatch[1]
+      const rightText = sigMatch[2]
+
+      // Skip known structural paragraphs
+      const isKnown = /^(Командиру|Командир\s|Рапорт|РАПОРТ|Дійсним|Прошу|Клопочу|Доповідна|___)/ui.test(leftText.trim())
+
+      if (!isKnown) {
+        // Grab run properties from the first <w:rPr> in this paragraph
+        const rPrMatch = para.match(/<w:rPr>([\s\S]*?)<\/w:rPr>/)
+        const rPr = rPrMatch ? `<w:rPr>${rPrMatch[1]}</w:rPr>` : ''
+
+        para =
+          `<w:p>` +
+          `<w:pPr>` +
+          `<w:jc w:val="left"/>` +
+          `<w:spacing w:after="0" w:before="0"/>` +
+          `<w:tabs><w:tab w:val="right" w:pos="${TAB_POS}"/></w:tabs>` +
+          `</w:pPr>` +
+          `<w:r>${rPr}<w:t xml:space="preserve">${leftText}</w:t></w:r>` +
+          `<w:r><w:tab/></w:r>` +
+          `<w:r>${rPr}<w:t xml:space="preserve">${rightText}</w:t></w:r>` +
+          `</w:p>`
+      }
+    }
+
+    result += para
+    pos = pEnd + CLOSE.length
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -334,6 +446,15 @@ export async function generateDoc(f, returnBuffer = false) {
 
   // Insert extra blank lines at key positions (2 blanks after body, 2 before last sig block)
   outXml = applyDocumentSpacing(outXml)
+
+  // Convert rank+spaces+name signature lines to proper right-tab layout
+  outXml = fixSignatureLines(outXml)
+
+  // Remove inter-paragraph spacing and add default justify to all paragraphs
+  outXml = fixParaXml(outXml)
+
+  // Remove all color overrides from template placeholder runs (makes red text black)
+  outXml = outXml.replace(/<w:color\s[^>]*\/>/g, '')
 
   // Inject official margins:
   //   Left: 35mm (1984 twips) — binding margin
