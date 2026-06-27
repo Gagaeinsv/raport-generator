@@ -75,7 +75,113 @@ function getImageFormat(base64Str) {
   return 'JPEG'
 }
 
+// ---------------------------------------------------------------------------
+// POST-RENDER PARAGRAPH FORMATTER
+// Walks every <w:p>...</w:p> in the rendered XML and applies proper Word
+// alignment/indent based on the text content of each paragraph.
+// Must run AFTER docxtemplater.render() so placeholders are already replaced.
+// ---------------------------------------------------------------------------
+function fixSingleParagraph(para) {
+  // Extract all text content from the paragraph
+  const allTextMatches = [...para.matchAll(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g)]
+  if (allTextMatches.length === 0) return para
+
+  const fullText = allTextMatches.map(m => m[1]).join('')
+  const trimmed = fullText.trim()
+
+  // Determine paragraph type and alignment
+  let align = null
+  let addIndent = false
+
+  if (/^(Дійсним\s+доповідаю|Дійсним\s+рапортую|Прошу|Клопочу)/ui.test(trimmed)) {
+    align = 'both'  // justified
+    addIndent = true
+  } else {
+    // Check leading whitespace in the first text chunk
+    const firstText = allTextMatches[0][1]
+    const leadingMatch = firstText.match(/^(\s+)/)
+    const leadingText = leadingMatch ? leadingMatch[1] : ''
+    const hasLeadingWS = leadingText.includes('\t') || leadingText.length >= 3
+
+    if (/^Командиру/ui.test(trimmed)) {
+      align = 'right'
+    } else if (/^(Рапорт|РАПОРТ|Доповідна)/ui.test(trimmed)) {
+      align = 'center'
+    } else if (hasLeadingWS && /^військової\s+частини/ui.test(trimmed)) {
+      align = 'right'
+    }
+  }
+
+  if (!align) return para
+
+  // Strip leading whitespace from all <w:t> tags
+  let fixed = para
+  let isFirst = true
+  fixed = fixed.replace(/<w:t([^>]*)>([\s\S]*?)<\/w:t>/g, (m, attrs, content) => {
+    if (isFirst) {
+      isFirst = false
+      return `<w:t${attrs}>${content.replace(/^\s+/, '')}</w:t>`
+    }
+    return m
+  })
+
+  // Insert or overwrite <w:jc>
+  let pPrContent = `<w:jc w:val="${align}"/>`
+  if (addIndent) pPrContent += '<w:ind w:firstLine="709"/>'
+
+  if (fixed.includes('<w:pPr>')) {
+    // Replace existing <w:jc> or insert new one
+    if (fixed.includes('<w:jc ')) {
+      fixed = fixed.replace(/<w:jc[^>]*\/>/g, `<w:jc w:val="${align}"/>`)
+    } else {
+      fixed = fixed.replace('<w:pPr>', `<w:pPr><w:jc w:val="${align}"/>`)
+    }
+    
+    // Manage indentation
+    if (addIndent) {
+      if (fixed.includes('<w:ind ')) {
+        fixed = fixed.replace(/<w:ind[^>]*\/>/g, '<w:ind w:firstLine="709"/>')
+      } else {
+        fixed = fixed.replace('<w:pPr>', `<w:pPr><w:ind w:firstLine="709"/>`)
+      }
+    } else {
+      // Remove any unwanted first line indent for non-body paragraphs
+      fixed = fixed.replace(/<w:ind[^>]*\/>/g, '')
+    }
+  } else {
+    fixed = fixed.replace('<w:p>', `<w:p><w:pPr>${pPrContent}</w:pPr>`)
+  }
+
+  return fixed
+}
+
+function fixDocumentParagraphs(xml) {
+  let result = ''
+  let pos = 0
+  const open = '<w:p>'
+  const close = '</w:p>'
+
+  while (pos < xml.length) {
+    const pStart = xml.indexOf(open, pos)
+    if (pStart === -1) { result += xml.substring(pos); break }
+
+    result += xml.substring(pos, pStart)
+
+    const pEnd = xml.indexOf(close, pStart)
+    if (pEnd === -1) { result += xml.substring(pStart); break }
+
+    const paraEnd = pEnd + close.length
+    result += fixSingleParagraph(xml.substring(pStart, paraEnd))
+    pos = paraEnd
+  }
+
+  return result
+}
+
+// ---------------------------------------------------------------------------
+
 export async function generateDoc(f, returnBuffer = false) {
+
   const templatePath = TEMPLATE_MAP[f.docType] || 'template-posada-pryiniav.docx'
   const response = await fetch(templatePath)
   const arrayBuffer = await response.arrayBuffer()
@@ -114,78 +220,42 @@ export async function generateDoc(f, returnBuffer = false) {
     weapon:        f.weapon || '',
   }
 
-  // Adjust spacing and styling inside word/document.xml dynamically based on renderData
+  // PRE-RENDER: Only signature spacing must happen before render (it uses {placeholder} names)
   let docXml = zip.file('word/document.xml').asText()
 
-  // 0. Fix alignment of header paragraphs that used leading spaces to simulate alignment:
-  //    - Paragraphs starting with spaces + "Командиру" or "військової" → right-align, strip spaces
-  //    - Paragraphs starting with spaces + "Рапорт" or "Доповідна" (title) → center-align, strip spaces
-  docXml = docXml.replace(
-    /(<w:p>)(<w:r><w:rPr>[\s\S]*?<\/w:rPr><w:t xml:space="preserve">)(\s{5,})((?:Командиру|Клопочу|РАПОРТ|Рапорт|Доповідна)[^\s]|(?:Командиру|Клопочу|РАПОРТ|Рапорт|Доповідна)\s)/g,
-    (match, pOpen, runStart, spaces, textStart) => {
-      const align = textStart.toLowerCase().startsWith('рапорт') || textStart.toLowerCase().startsWith('доповідна')
-        ? 'center'
-        : 'right'
-      return `${pOpen}<w:pPr><w:jc w:val="${align}"/></w:pPr>${runStart}${textStart}`
-    }
-  )
-  // Also handle "військової частини" lines that follow a right-aligned "Командиру" block
-  docXml = docXml.replace(
-    /(<w:p>)(<w:r><w:rPr>[\s\S]*?<\/w:rPr><w:t xml:space="preserve">)(\s{5,})(військової частини)/g,
-    (match, pOpen, runStart, spaces, textStart) => {
-      return `${pOpen}<w:pPr><w:jc w:val="right"/></w:pPr>${runStart}${textStart}`
-    }
-  )
-
-  // 1. Strip leading spaces/tabs from the body text paragraph to prevent double indenting
-  docXml = docXml.replace(/(<w:t[^>]*>)\s+([Дд]ійсним доповідаю|[Пп]рошу)/g, '$1$2')
-  docXml = docXml.replace(/(<w:t[^>]*>)\t+([Дд]ійсним доповідаю|[Пп]рошу)/g, '$1$2')
-
-  // 2. Inject standard first-line paragraph indent (12.5mm = 709 dxa) for the body paragraph
-  const pRegex = /<w:p>(?:<w:pPr>((?:(?!<\/w:p>)[\s\S])*?)<\/w:pPr>)?((?:(?!<\/w:p>)[\s\S])*?<w:t[^>]*>(?:[Дд]ійсним доповідаю|[Пп]рошу))/g
-  docXml = docXml.replace(pRegex, (match, pPrInner, rest) => {
-    if (pPrInner) {
-      if (pPrInner.includes('<w:ind')) {
-        pPrInner = pPrInner.replace(/<w:ind[^>]*>/, '<w:ind w:firstLine="709"/>')
-      } else {
-        pPrInner += '<w:ind w:firstLine="709"/>'
-      }
-      return `<w:p><w:pPr>${pPrInner}</w:pPr>${rest}`
-    } else {
-      return `<w:p><w:pPr><w:ind w:firstLine="709"/></w:pPr>${rest}`
-    }
+  // Adjust signature line spacings dynamically (must be pre-render since it reads {placeholders})
+  const spacingRegex = /(\{([a-zA-Z0-9_]+)\})(\s{10,})(\{([a-zA-Z0-9_]+)\})/g
+  docXml = docXml.replace(spacingRegex, (match, tag1Str, tag1, spaces, tag2Str, tag2) => {
+    const val1 = (renderData[tag1] || '').toString()
+    const val2 = (renderData[tag2] || '').toString()
+    const targetWidth = 135
+    const newSpaceCount = Math.max(15, targetWidth - val1.length * 2 - val2.length * 2)
+    return `${tag1Str}${' '.repeat(newSpaceCount)}${tag2Str}`
   })
+  zip.file('word/document.xml', docXml)
 
-  // 3. Inject official margins (Left: 35mm, Right: 20mm, Top: 20mm, Bottom: 20mm)
+  // RENDER: docxtemplater replaces all {placeholders} with actual values
+  const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true })
+  doc.render(renderData)
+
+  // POST-RENDER: Apply all formatting to the rendered XML.
+  // This ensures docxtemplater cannot overwrite our paragraph structure changes.
+  const renderedZip = doc.getZip()
+  let outXml = renderedZip.file('word/document.xml').asText()
+
+  // Walk each <w:p>...</w:p> block and fix alignment + indent
+  outXml = fixDocumentParagraphs(outXml)
+
+  // Inject official margins (Left: 35mm, Right: 20mm, Top/Bottom: 20mm)
   const sectPr = `<w:sectPr>
     <w:pgSz w:w="11906" w:h="16838"/>
     <w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1984" w:header="720" w:footer="720" w:gutter="0"/>
     <w:cols w:space="720"/>
   </w:sectPr>`
-  docXml = docXml.replace('</w:body>', `${sectPr}</w:body>`)
+  outXml = outXml.replace('</w:body>', `${sectPr}</w:body>`)
 
-  // 4. Adjust signature line spacings dynamically
-  const spacingRegex = /(\{([a-zA-Z0-9_]+)\})(\s{10,})(\{([a-zA-Z0-9_]+)\})/g
-  docXml = docXml.replace(spacingRegex, (match, tag1Str, tag1, spaces, tag2Str, tag2) => {
-    const val1 = (renderData[tag1] || '').toString()
-    const val2 = (renderData[tag2] || '').toString()
-    
-    // Target visual width of 135 space units
-    const targetWidth = 135
-    const val1Width = val1.length * 2
-    const val2Width = val2.length * 2
-    
-    const newSpaceCount = Math.max(15, targetWidth - val1Width - val2Width)
-    const newSpaces = ' '.repeat(newSpaceCount)
-    return `${tag1Str}${newSpaces}${tag2Str}`
-  })
-
-  zip.file('word/document.xml', docXml)
-
-  const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true })
-  doc.render(renderData)
-
-  const output = doc.getZip().generate({ type: 'arraybuffer' })
+  renderedZip.file('word/document.xml', outXml)
+  const output = renderedZip.generate({ type: 'arraybuffer' })
   if (returnBuffer) return output
 
   const fileName = `${FILE_NAMES[f.docType] || 'Рапорт'}.docx`
