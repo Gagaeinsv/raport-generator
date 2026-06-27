@@ -179,6 +179,88 @@ function fixDocumentParagraphs(xml) {
 }
 
 // ---------------------------------------------------------------------------
+// POST-RENDER SPACING ADJUSTER
+// Inserts extra blank paragraphs to create proper vertical spacing:
+//   - 2 blank lines after the report body text
+//   - 2 blank lines before the last signature block
+// Must run AFTER fixDocumentParagraphs so paragraph text is already clean.
+// ---------------------------------------------------------------------------
+function applyDocumentSpacing(xml) {
+  // Blank paragraph matching document font style
+  const BLANK_PARA = '<w:p><w:r><w:rPr>' +
+    '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:cs="Times New Roman"/>' +
+    '<w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="uk-UA"/>' +
+    '</w:rPr><w:t xml:space="preserve"> </w:t></w:r></w:p>'
+
+  // Extract all text runs from a paragraph XML string
+  function getText(paraXml) {
+    return [...paraXml.matchAll(/<w:t[^>]*>([\/\s\S]*?)<\/w:t>/g)].map(m => m[1]).join('').trim()
+  }
+
+  // Parse XML into interleaved gap/paragraph segments
+  const segments = []
+  let pos = 0
+  while (pos < xml.length) {
+    const pStart = xml.indexOf('<w:p>', pos)
+    if (pStart === -1) { segments.push({ para: false, xml: xml.substring(pos) }); break }
+    if (pStart > pos) segments.push({ para: false, xml: xml.substring(pos, pStart) })
+    const pEnd = xml.indexOf('</w:p>', pStart)
+    if (pEnd === -1) { segments.push({ para: false, xml: xml.substring(pStart) }); break }
+    const paraXml = xml.substring(pStart, pEnd + 6)
+    segments.push({ para: true, xml: paraXml, text: getText(paraXml) })
+    pos = pEnd + 6
+  }
+
+  // Pattern: body paragraphs = Дійсним/Прошу/Клопочу (paragraph text starters)
+  const isBodyText = t => /^(Дійсним\s+доповідаю|Дійсним\s+рапортую|Прошу|Клопочу)/ui.test(t)
+  const isEmpty    = t => t === '' || /^\s+$/.test(t)
+
+  // Get indices (in segments[]) of all body-text paragraphs
+  const bodySegIdxs = segments.reduce((acc, seg, i) => {
+    if (seg.para && isBodyText(seg.text)) acc.push(i)
+    return acc
+  }, [])
+
+  if (bodySegIdxs.length === 0) return xml
+
+  // Find next *paragraph* segment index after a given index
+  function nextPara(afterIdx) {
+    for (let i = afterIdx + 1; i < segments.length; i++) {
+      if (segments[i].para) return i
+    }
+    return -1
+  }
+
+  // Collect positions (segment indices) after which to insert an extra blank
+  const extraBlanksAfter = new Set()
+
+  // 1. After first body paragraph (the report body text) — want 2 blank lines
+  const firstBodyIdx = bodySegIdxs[0]
+  const nextAfterFirst = nextPara(firstBodyIdx)
+  if (nextAfterFirst !== -1 && isEmpty(segments[nextAfterFirst].text)) {
+    extraBlanksAfter.add(nextAfterFirst) // insert AFTER the existing blank
+  }
+
+  // 2. After LAST body paragraph (last Клопочу) — want 2 blank lines before final sig block
+  const lastBodyIdx = bodySegIdxs[bodySegIdxs.length - 1]
+  if (lastBodyIdx !== firstBodyIdx) {
+    const nextAfterLast = nextPara(lastBodyIdx)
+    if (nextAfterLast !== -1 && isEmpty(segments[nextAfterLast].text)) {
+      extraBlanksAfter.add(nextAfterLast)
+    }
+  }
+
+  // Rebuild XML with extra blank paragraphs inserted
+  const parts = []
+  for (let i = 0; i < segments.length; i++) {
+    parts.push(segments[i].xml)
+    if (extraBlanksAfter.has(i)) parts.push(BLANK_PARA)
+  }
+
+  return parts.join('')
+}
+
+// ---------------------------------------------------------------------------
 
 export async function generateDoc(f, returnBuffer = false) {
 
@@ -224,12 +306,16 @@ export async function generateDoc(f, returnBuffer = false) {
   let docXml = zip.file('word/document.xml').asText()
 
   // Adjust signature line spacings dynamically (must be pre-render since it reads {placeholders})
-  const spacingRegex = /(\{([a-zA-Z0-9_]+)\})(\s{10,})(\{([a-zA-Z0-9_]+)\})/g
+  // LINE_WIDTH_CHARS: safe approximate character count per line in 12pt Times New Roman
+  // on A4 with 35mm left / 10mm right margins (~165mm content width ≈ 70 Cyrillic chars).
+  // Using simple subtraction (no *2) keeps the total ≤ LINE_WIDTH_CHARS for any name length.
+  const LINE_WIDTH_CHARS = 68
+  const MIN_SIG_SPACES = 5
+  const spacingRegex = /(\.?\{([a-zA-Z0-9_]+)\})(\s{3,})(\{([a-zA-Z0-9_]+)\})/g
   docXml = docXml.replace(spacingRegex, (match, tag1Str, tag1, spaces, tag2Str, tag2) => {
     const val1 = (renderData[tag1] || '').toString()
     const val2 = (renderData[tag2] || '').toString()
-    const targetWidth = 135
-    const newSpaceCount = Math.max(15, targetWidth - val1.length * 2 - val2.length * 2)
+    const newSpaceCount = Math.max(MIN_SIG_SPACES, LINE_WIDTH_CHARS - val1.length - val2.length)
     return `${tag1Str}${' '.repeat(newSpaceCount)}${tag2Str}`
   })
   zip.file('word/document.xml', docXml)
@@ -246,10 +332,16 @@ export async function generateDoc(f, returnBuffer = false) {
   // Walk each <w:p>...</w:p> block and fix alignment + indent
   outXml = fixDocumentParagraphs(outXml)
 
-  // Inject official margins (Left: 35mm, Right: 20mm, Top/Bottom: 20mm)
+  // Insert extra blank lines at key positions (2 blanks after body, 2 before last sig block)
+  outXml = applyDocumentSpacing(outXml)
+
+  // Inject official margins:
+  //   Left: 35mm (1984 twips) — binding margin
+  //   Right: 10mm  (567 twips)
+  //   Top/Bottom: 20mm (1134 twips)
   const sectPr = `<w:sectPr>
     <w:pgSz w:w="11906" w:h="16838"/>
-    <w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1984" w:header="720" w:footer="720" w:gutter="0"/>
+    <w:pgMar w:top="1134" w:right="567" w:bottom="1134" w:left="1984" w:header="720" w:footer="720" w:gutter="0"/>
     <w:cols w:space="720"/>
   </w:sectPr>`
   outXml = outXml.replace('</w:body>', `${sectPr}</w:body>`)
