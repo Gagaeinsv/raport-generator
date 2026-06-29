@@ -372,6 +372,7 @@ function fixSignatureLines(xml) {
     result += para
     pos = pEnd + CLOSE.length
   }
+  return result
 }
 
 // ---------------------------------------------------------------------------
